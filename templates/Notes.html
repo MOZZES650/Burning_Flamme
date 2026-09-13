@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bounty Notes</title>
+
+<style>
+
+body{
+    font-family:sans-serif;
+    background:#1a1a1a;
+    color:white;
+    padding:20px;
+}
+
+.input-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+textarea{
+    flex:1;
+    padding:12px;
+    background:#333;
+    border:none;
+    color:white;
+    resize:vertical;
+    min-height:60px;
+}
+
+button{
+    padding:12px 18px;
+    border:none;
+    cursor:pointer;
+    font-weight:bold;
+    border-radius:6px;
+}
+
+.send-btn{
+    background:#4ade80;
+}
+
+.clear-btn{
+    background:#ef4444;
+    color:white;
+}
+
+.notes-container{
+    display:flex;
+    flex-wrap:wrap;
+    gap:15px;
+}
+
+.note-card{
+    width:220px;
+    max-height:220px;
+    padding:12px;
+    color:#333;
+    font-weight:bold;
+    border-radius:8px;
+
+    overflow-y:auto;
+    position:relative;
+
+    white-space:pre-wrap;
+    word-break:break-word;
+}
+
+.note-card::-webkit-scrollbar{
+    width:6px;
+}
+
+.note-card::-webkit-scrollbar-thumb{
+    background:rgba(0,0,0,0.4);
+    border-radius:4px;
+}
+
+.note-card::after{
+    content:"";
+    position:absolute;
+    bottom:0;
+    left:0;
+    right:0;
+    height:25px;
+    background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(0,0,0,0.2));
+    pointer-events:none;
+}
+
+</style>
+</head>
+
+
+
+<body>
+
+<form method="POST">
+<div class="input-row">
+<textarea name="note" placeholder="Write your note..."></textarea>
+<button class="send-btn" type="submit">Send</button>
+</div>
+</form>
+
+<form method="POST" action="/clear">
+<button class="clear-btn">Clear All Notes</button>
+</form>
+
+<!-- <div class="notes-container">
+{% for note in notes %}
+<div class="note-card" style="background-color: {{ note.color }};">
+{{ note.text }}
+</div>
+{% endfor %}
+</div> -->
+
+<div id="notes-container" class="notes-container">
+{% for note in notes %}
+<div class="note-card" style="background-color: {{ note.color }};">
+{{ note.text }}
+</div>
+{% endfor %}
+</div>
+
+<script>
+
+async function refreshNotes(){
+
+    const response = await fetch("/api/notes");
+    const data = await response.json();
+
+    const container = document.getElementById("notes-container");
+
+    container.innerHTML = "";
+
+    data.forEach(note => {
+
+        const div = document.createElement("div");
+
+        div.className = "note-card";
+        div.style.backgroundColor = note.color;
+
+        div.textContent = note.text;
+
+        container.appendChild(div);
+
+    });
+
+}
+
+/* refresh every second */
+setInterval(refreshNotes, 1000);
+
+</script>
+</body>
+</html>

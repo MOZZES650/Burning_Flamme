@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Hijack Traffic</title>
+</head>
+<body>
+    <h1>traffic Hijack</h1>
+
+    {% if headers %}
+        <h2>Request Headers (Last POST)</h2>
+        <pre>{{ headers | tojson(indent=2) }}</pre>
+    {% endif %}
+
+    {% if notes %}
+        <h2>Received Post Data</h2>
+        <ul>
+        {% for note in notes %}
+            <li><pre>{{ note | tojson(indent=2) }}</pre></li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No Post data submitted yet.</p>
+    {% endif %}
+</body>
+</html>

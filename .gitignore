@@ -1,0 +1,6 @@
+uploads/
+data/domain_logs.jsonl
+templates/backdoor.html
+templates/pentestmonkey.html
+templates/pwn_all_WV.html
+templates/python3_payload*.html
