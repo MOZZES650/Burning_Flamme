@@ -1,4 +1,4 @@
-uploads/
+.gitignore
 data/domain_logs.jsonl
 templates/backdoor.html
 templates/pentestmonkey.html
