@@ -27,18 +27,11 @@ LOG_FILE_DOMAIN = ROOT_DIR / "domain_logs.jsonl"
 
 # Upload Settings
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "500"))
-# NEW: Strict secret key for uploads (Change this or set via env var)
 UPLOAD_SECRET = os.getenv("UPLOAD_SECRET", "TermuxDropServer_SecretKey_2024!") 
 
 # Ensure base directories exist
 for d in [ROOT_DIR, UPLOAD_ROOT, DOWNLOADS_DIR, BIN_DIR]:
     d.mkdir(parents=True, exist_ok=True)
-
-# CVE Stack for catch-all routing
-CVE_STACKS = {
-    "CVE-2024-5932": ["wp-content", "plugins", "give"],
-    "CVE-2026-33017": ["api", "langflow"]
-}
 
 # HTML Template for Header Info
 HTML_TEMPLATE = """
@@ -107,10 +100,6 @@ def check_upload_auth():
     token = request.headers.get("X-Upload-Secret", "")
     if token != UPLOAD_SECRET:
         raise PermissionError("Invalid or missing X-Upload-Secret header")
-
-def sanitize_filename(name: str) -> str:
-    """Remove or replace characters illegal in Windows/Unix filenames."""
-    return re.sub(r'[\\/*?:"<>|]', '_', name)
 
 def ensure_upload_dir_writable(target: Path) -> Path:
     """Ensure target's parent dir chain (under UPLOAD_ROOT) exists and is
@@ -181,7 +170,37 @@ def save_upload(target: Path, stream) -> int:
     return size
 
 # ══════════════════════════════════════════════════════════
-# 4. ROUTES: UI & CLIENT HINTS
+# 4. UNIVERSAL REQUEST LOGGER
+# ══════════════════════════════════════════════════════════
+
+@app.before_request
+def log_every_request():
+    """Intercepts EVERY request before it hits a route and logs metadata."""
+    body_preview = ""
+    if request.method in ["POST", "PUT", "PATCH"]:
+        # Limit to 1000 chars to prevent logging massive file uploads
+        body_preview = request.get_data(as_text=True)[:1000]
+
+    log_entry = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "method": request.method,
+        "full_url": request.url,
+        "path": request.path,
+        "query_string": request.query_string.decode('utf-8') if request.query_string else "",
+        "remote_ip": request.remote_addr,
+        "referrer": request.referrer or "None",
+        "user_agent": request.headers.get("User-Agent", "Unknown"),
+        "body_preview": body_preview
+    }
+
+    try:
+        with open(LOG_FILE_DOMAIN, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry) + "\n")
+    except Exception as e:
+        app.logger.error(f"Failed to write to log: {e}")
+
+# ══════════════════════════════════════════════════════════
+# 5. ROUTES: UI & CLIENT HINTS
 # ══════════════════════════════════════════════════════════
 
 @app.route('/')
@@ -216,7 +235,7 @@ def header_info():
     return response
 
 # ══════════════════════════════════════════════════════════
-# 5. ROUTES: FREE DOWNLOADS (NO AUTH REQUIRED)
+# 6. ROUTES: FREE DOWNLOADS (NO AUTH REQUIRED)
 # ══════════════════════════════════════════════════════════
 
 @app.route('/pregnant/<path:filepath>', methods=['GET'])
@@ -241,7 +260,7 @@ def download_file(filepath):
         return jsonify({"error": "Internal server error"}), 500
 
 # ══════════════════════════════════════════════════════════
-# 6. ROUTES: FILE UPLOAD (STRICT AUTH REQUIRED)
+# 7. ROUTES: FILE UPLOAD (STRICT AUTH REQUIRED)
 # ══════════════════════════════════════════════════════════
 
 @app.route('/files/<path:filepath>', methods=['POST'])
@@ -288,65 +307,25 @@ def upload_file(filepath):
         return jsonify({"error": "Internal server error"}), 500
 
 # ══════════════════════════════════════════════════════════
-# 7. ROUTES: CATCH-ALL & LOGGING
+# 8. ROUTES: CATCH-ALL (SIMPLIFIED FILE SERVING)
 # ══════════════════════════════════════════════════════════
 
-@app.route('/<path:subpath>', methods=['GET', 'POST'])
+@app.route('/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def catch_all(subpath):
-    normalized_path = unquote(subpath).lower()
-    detected_cve = None
-    target_site = None
-
-    for param, value in request.args.items():
-        if param.upper().startswith("CVE-"):
-            detected_cve = param.upper()
-            target_site = value
-            break
-
-    if detected_cve and detected_cve in CVE_STACKS:
-        keywords = CVE_STACKS[detected_cve]
-        if normalized_path.startswith(keywords) or any(k in normalized_path for k in keywords):
-            log_dir = ROOT_DIR / (detected_cve if detected_cve != "CVE-2026-33017" else "Langflow") / "Custom" / "LOGS"
-            log_dir.mkdir(parents=True, exist_ok=True)
-
-            if request.method == "POST":
-                safe_domain = "unknown_target"
-                if target_site:
-                    clean = re.sub(r'^https?://', '', target_site)
-                    clean = clean.split('/')[0].split(':')[0].split('?')[0]
-                    safe_domain = sanitize_filename(clean)
-                
-                log_file = log_dir / f"{safe_domain}.json"
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    f.write(request.get_data(as_text=True) + "\n")
-
-            return jsonify({"status": "logged", "cve": detected_cve}), 200
-
-    return send_filebin(subpath)
-
-def send_filebin(path):
-    log_entry = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "ip": request.remote_addr,
-        "referrer": request.referrer,
-        "user_agent": request.headers.get("User-Agent"),
-        "requested_file": path,
-        "full_path_query": request.full_path.rstrip('?')
-    }
-
+    """
+    Fallback route for anything not explicitly defined.
+    Attempts to serve the file from BIN_DIR, or returns a clean JSON 404.
+    """
     try:
-        with open(LOG_FILE_DOMAIN, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-    except Exception as e:
-        app.logger.error(f"Failed to write to log: {e}")
-
-    if re.match(r"^[a-zA-Z0-9]{12}\.php$", path):
-        return send_from_directory(BIN_DIR, "sm.php")
-         
-    return send_from_directory(BIN_DIR, path)
+        return send_from_directory(BIN_DIR, subpath)
+    except Exception:
+        return jsonify({
+            "error": "Resource not found", 
+            "requested_path": subpath
+        }), 404
 
 # ══════════════════════════════════════════════════════════
-# 8. MAIN EXECUTION
+# 9. MAIN EXECUTION
 # ══════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
