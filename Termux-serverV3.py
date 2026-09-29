@@ -170,31 +170,16 @@ def save_upload(target: Path, stream) -> int:
     return size
 
 # ══════════════════════════════════════════════════════════
-# 4. UNIVERSAL REQUEST LOGGER
+# 4. UNIVERSAL REQUEST LOGGER (STREAM-SAFE)
 # ══════════════════════════════════════════════════════════
 
 @app.before_request
 def log_every_request():
-    """Intercepts EVERY request before it hits a route and logs metadata."""
-    body_preview = ""
-    
-    # SAFETY: Do NOT call request.get_data() unconditionally! 
-    # It consumes the input stream, causing request.stream in the upload route to read 0 bytes.
-    content_type = request.headers.get("Content-Type", "").lower()
-    content_length_str = request.headers.get("Content-Length", "0")
-    
-    try:
-        content_length = int(content_length_str)
-    except ValueError:
-        content_length = 0
-
-    # Only attempt to read body if it's small (< 2KB) and NOT a raw binary stream
-    if request.method in ["POST", "PUT", "PATCH"] and content_length < 2048 and "application/octet-stream" not in content_type:
-        try:
-            body_preview = request.get_data(as_text=True)[:1000]
-        except Exception:
-            pass
-
+    """
+    Intercepts EVERY request before it hits a route and logs metadata.
+    NOTE: We intentionally DO NOT read request.get_data() or request.form 
+    here, so we don't consume the input stream and break file uploads.
+    """
     log_entry = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "method": request.method,
@@ -204,7 +189,7 @@ def log_every_request():
         "remote_ip": request.remote_addr,
         "referrer": request.referrer or "None",
         "user_agent": request.headers.get("User-Agent", "Unknown"),
-        "body_preview": body_preview
+        "body_preview": "<skipped to preserve upload stream>"
     }
 
     try:
