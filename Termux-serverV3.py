@@ -177,9 +177,23 @@ def save_upload(target: Path, stream) -> int:
 def log_every_request():
     """Intercepts EVERY request before it hits a route and logs metadata."""
     body_preview = ""
-    if request.method in ["POST", "PUT", "PATCH"]:
-        # Limit to 1000 chars to prevent logging massive file uploads
-        body_preview = request.get_data(as_text=True)[:1000]
+    
+    # SAFETY: Do NOT call request.get_data() unconditionally! 
+    # It consumes the input stream, causing request.stream in the upload route to read 0 bytes.
+    content_type = request.headers.get("Content-Type", "").lower()
+    content_length_str = request.headers.get("Content-Length", "0")
+    
+    try:
+        content_length = int(content_length_str)
+    except ValueError:
+        content_length = 0
+
+    # Only attempt to read body if it's small (< 2KB) and NOT a raw binary stream
+    if request.method in ["POST", "PUT", "PATCH"] and content_length < 2048 and "application/octet-stream" not in content_type:
+        try:
+            body_preview = request.get_data(as_text=True)[:1000]
+        except Exception:
+            pass
 
     log_entry = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
