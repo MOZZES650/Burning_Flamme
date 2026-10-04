@@ -1,0 +1,11 @@
+{
+  "order_id": "ip-176-160-153-17-1791142691",
+  "target_url": "https://lesser-replace-entrap.ngrok-free.dev/pregnant/CIDR_TEST.txt",
+  "start_time": "2026-10-04T19:38:11.829568557Z",
+  "end_time": "2026-10-04T19:40:16.465521464Z",
+  "commands_run": [
+    "naabu -l targets.txt -p 21-25,53,80,88,102,110,143,443,445,465,502,587,993,995,2323,2375-2376,2404,3000,3306,3389,3671,4190,4443,47808,4840,5000,5050,5432,5601,5900,6379,8000-8002,8009,8080,8090,8123,8291,8443,9200,10001,10250,10443,11211,11434,20000,27017,44818 -s c -rate 2500 -c 50 -silent -o live_ports.txt",
+    "nerva -l live_ports.txt --json -o results.json --rate-limit 250 --workers 100 --max-host-conn 4 --scan-depth thorough"
+  ],
+  "status": "success"
+}
