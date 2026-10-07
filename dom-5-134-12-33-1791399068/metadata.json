@@ -1,0 +1,12 @@
+{
+  "order_id": "dom-5-134-12-33-1791399068",
+  "target_url": "https://lesser-replace-entrap.ngrok-free.dev/pregnant/clean_domain/net_clean/net_clean_000.txt",
+  "start_time": "2026-10-07T19:51:08.231275354+01:00",
+  "end_time": "2026-10-07T19:51:10.869352168+01:00",
+  "commands_run": [
+    "puredns resolve targets.txt -r resolvers.txt -l 5000 --skip-wildcard-filter -q -w resolved.txt",
+    "httpx -l resolved.txt -mc 200,301,302 -rate-limit 100 -threads 20 -tech-detect -json -silent -o results.txt"
+  ],
+  "status": "failed",
+  "error": "Command failed: fork/exec /tmp/recon/assets/httpx_linux_amd64: permission denied"
+}
