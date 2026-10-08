@@ -1,0 +1,11 @@
+{
+  "order_id": "dom-5-134-12-33-1791425649",
+  "target_url": "https://lesser-replace-entrap.ngrok-free.dev/pregnant/clean_domain/net_clean/net_clean_001.txt",
+  "start_time": "2026-10-08T03:14:09.504112717+01:00",
+  "end_time": "2026-10-08T03:29:17.641720412+01:00",
+  "commands_run": [
+    "puredns resolve targets.txt -r resolvers.txt -l 5000 --skip-wildcard-filter -q -w resolved.txt",
+    "httpx -l resolved.txt -mc 200,301,302 -rate-limit 100 -threads 20 -tech-detect -json -silent -o results.txt"
+  ],
+  "status": "success"
+}
